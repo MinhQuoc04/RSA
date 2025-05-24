@@ -1,0 +1,282 @@
+{% extends "base.html" %}
+
+{% block title %}Secure File Transfer - Home{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Header Section -->
+    <div class="col-12 mb-4">
+        <div class="text-center">
+            <h1 class="display-5 fw-bold text-primary">
+                <i class="fas fa-shield-alt me-3"></i>
+                Secure File Transfer
+            </h1>
+            <p class="lead text-muted">
+                Transfer files securely with cryptographic signatures and end-to-end verification
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- Security Status -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card security-status-card">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h5 class="card-title mb-1">
+                            <i class="fas fa-key me-2"></i>Security Status
+                        </h5>
+                        {% if keys_exist %}
+                        <p class="text-success mb-0">
+                            <i class="fas fa-check-circle me-1"></i>
+                            RSA key pair is ready for secure transfers
+                        </p>
+                        {% else %}
+                        <p class="text-warning mb-0">
+                            <i class="fas fa-exclamation-triangle me-1"></i>
+                            No cryptographic keys found
+                        </p>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-4 text-md-end">
+                        <form method="POST" action="{{ url_for('regenerate_keys') }}" class="d-inline">
+                            <button type="submit" class="btn btn-outline-primary btn-sm">
+                                <i class="fas fa-sync-alt me-1"></i>
+                                Generate New Keys
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Transfer Status -->
+{% if transfer_status.active or transfer_status.message != 'Ready' %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card status-card">
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-{{ 'upload' if transfer_status.type == 'send' else 'download' }} me-2"></i>
+                        Transfer Status
+                    </h5>
+                    {% if not transfer_status.active %}
+                    <form method="POST" action="{{ url_for('clear_status') }}" class="d-inline">
+                        <button type="submit" class="btn btn-sm btn-outline-secondary">
+                            <i class="fas fa-times me-1"></i>Clear
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+
+                <div class="status-message mb-3">
+                    {% if transfer_status.error %}
+                    <div class="text-danger">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        {{ transfer_status.message }}
+                    </div>
+                    {% elif transfer_status.active %}
+                    <div class="text-info">
+                        <i class="fas fa-spinner fa-spin me-2"></i>
+                        {{ transfer_status.message }}
+                    </div>
+                    {% else %}
+                    <div class="text-success">
+                        <i class="fas fa-check-circle me-2"></i>
+                        {{ transfer_status.message }}
+                    </div>
+                    {% endif %}
+                </div>
+
+                {% if transfer_status.filename %}
+                <div class="small text-muted mb-3">
+                    <i class="fas fa-file me-1"></i>
+                    File: {{ transfer_status.filename }}
+                </div>
+                {% endif %}
+
+                <div class="progress">
+                    <div class="progress-bar progress-bar-striped {% if transfer_status.active %}progress-bar-animated{% endif %} 
+                         {% if transfer_status.error %}bg-danger{% elif transfer_status.progress == 100 %}bg-success{% else %}bg-info{% endif %}"
+                        role="progressbar" aria-valuenow="{{ transfer_status.progress }}" aria-valuemin="0"
+                        aria-valuemax="100">
+                        {{ transfer_status.progress }}%
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Main Action Cards -->
+<div class="row">
+    <!-- Send File Card -->
+    <div class="col-lg-6 mb-4">
+        <div class="card action-card h-100">
+            <div class="card-header bg-primary text-white">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-upload me-2"></i>
+                    Send File
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="card-text text-muted">
+                    Upload and send a file with cryptographic signature to a remote receiver.
+                </p>
+
+                <form method="POST" action="{{ url_for('send_file') }}" enctype="multipart/form-data" class="send-form">
+                    <!-- File Upload Area -->
+                    <div class="upload-area mb-3" id="uploadArea">
+                        <div class="upload-content">
+                            <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+                            <p class="mb-2">Drag and drop files here</p>
+                            <p class="small text-muted">or click to browse</p>
+                            <input type="file" name="file" id="fileInput" class="form-control" required
+                                style="display: none;">
+                        </div>
+                        <div class="upload-file-info" id="fileInfo" style="display: none;">
+                            <i class="fas fa-file fa-2x text-primary mb-2"></i>
+                            <p class="file-name mb-1"></p>
+                            <p class="file-size small text-muted"></p>
+                        </div>
+                    </div>
+
+                    <!-- Connection Settings -->
+                    <div class="row mb-3">
+                        <div class="col-md-8">
+                            <label for="host" class="form-label">
+                                <i class="fas fa-server me-1"></i>Receiver Host
+                            </label>
+                            <input type="text" class="form-control" name="host" id="host" value="localhost"
+                                placeholder="localhost or IP address">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="port" class="form-label">
+                                <i class="fas fa-ethernet me-1"></i>Port
+                            </label>
+                            <input type="number" class="form-control" name="port" id="port" value="12345" min="1"
+                                max="65535">
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100" id="sendBtn" {% if not keys_exist %}disabled{%
+                        endif %}>
+                        <i class="fas fa-paper-plane me-2"></i>
+                        Send File
+                    </button>
+
+                    {% if not keys_exist %}
+                    <div class="alert alert-warning mt-3 mb-0">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Generate cryptographic keys first to enable file sending.
+                    </div>
+                    {% endif %}
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Receive File Card -->
+    <div class="col-lg-6 mb-4">
+        <div class="card action-card h-100">
+            <div class="card-header bg-success text-white">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-download me-2"></i>
+                    Receive File
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="card-text text-muted">
+                    Listen for incoming files and verify their cryptographic signatures.
+                </p>
+
+                <form method="POST" action="{{ url_for('receive_file') }}" class="receive-form">
+                    <!-- Save Path -->
+                    <div class="mb-3">
+                        <label for="save_path" class="form-label">
+                            <i class="fas fa-save me-1"></i>Save File As
+                        </label>
+                        <input type="text" class="form-control" name="save_path" id="save_path"
+                            placeholder="e.g., received_file.txt" required>
+                        <div class="form-text">
+                            Specify the full path where the received file should be saved.
+                        </div>
+                    </div>
+
+                    <!-- Connection Settings -->
+                    <div class="row mb-3">
+                        <div class="col-md-8">
+                            <label for="receive_host" class="form-label">
+                                <i class="fas fa-server me-1"></i>Listen Host
+                            </label>
+                            <input type="text" class="form-control" name="receive_host" id="receive_host"
+                                value="localhost" placeholder="localhost or IP to bind to">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="receive_port" class="form-label">
+                                <i class="fas fa-ethernet me-1"></i>Port
+                            </label>
+                            <input type="number" class="form-control" name="receive_port" id="receive_port"
+                                value="12345" min="1" max="65535">
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-success w-100" {% if not keys_exist %}disabled{% endif %}>
+                        <i class="fas fa-satellite-dish me-2"></i>
+                        Start Listening
+                    </button>
+
+                    {% if not keys_exist %}
+                    <div class="alert alert-warning mt-3 mb-0">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Generate cryptographic keys first to enable file receiving.
+                    </div>
+                    {% endif %}
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Features Section -->
+<div class="row mt-5">
+    <div class="col-12">
+        <h3 class="text-center mb-4">Security Features</h3>
+        <div class="row">
+            <div class="col-md-4 text-center mb-3">
+                <div class="feature-icon">
+                    <i class="fas fa-signature fa-3x text-primary mb-3"></i>
+                </div>
+                <h5>Digital Signatures</h5>
+                <p class="text-muted">Files are signed with RSA-2048 for authenticity verification</p>
+            </div>
+            <div class="col-md-4 text-center mb-3">
+                <div class="feature-icon">
+                    <i class="fas fa-shield-virus fa-3x text-success mb-3"></i>
+                </div>
+                <h5>Integrity Protection</h5>
+                <p class="text-muted">SHA-256 hashing ensures files haven't been tampered with</p>
+            </div>
+            <div class="col-md-4 text-center mb-3">
+                <div class="feature-icon">
+                    <i class="fas fa-network-wired fa-3x text-info mb-3"></i>
+                </div>
+                <h5>Direct Transfer</h5>
+                <p class="text-muted">Peer-to-peer transfer without intermediate servers</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Auto-refresh status every 2 seconds when transfer is active
+</script>
+{% endblock %}
